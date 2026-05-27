@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FocusTab</title>
+  <!-- Google Fonts: Syne for headings, JetBrains Mono for the timer -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════
+       ANIMATED BACKGROUND CANVAS
+       A subtle animated gradient orb that
+       shifts colour depending on the active tab.
+  ══════════════════════════════════════ -->
+  <div class="bg-orb" id="bg-orb"></div>
+
+  <!-- ══════════════════════════════════════
+       HEADER — logo + pill navigation
+  ══════════════════════════════════════ -->
+  <header class="header">
+    <div class="logo">
+      <!-- SVG lightning bolt icon -->
+      <svg class="logo-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M13 2L4.5 13.5H11L10 22L19.5 10.5H13L13 2Z" fill="currentColor"/>
+      </svg>
+      <span class="logo-text">FocusTab</span>
+    </div>
+
+    <!-- Pill-style tab switcher -->
+    <nav class="nav-tabs" role="tablist">
+      <button class="nav-btn active" data-tab="tabs" role="tab" aria-selected="true" aria-controls="panel-tabs">
+        <svg viewBox="0 0 16 16" fill="none"><rect x="1" y="1" width="6" height="6" rx="1" fill="currentColor"/><rect x="9" y="1" width="6" height="6" rx="1" fill="currentColor" opacity=".5"/><rect x="1" y="9" width="6" height="6" rx="1" fill="currentColor" opacity=".5"/><rect x="9" y="9" width="6" height="6" rx="1" fill="currentColor" opacity=".3"/></svg>
+        Tabs
+      </button>
+      <button class="nav-btn" data-tab="reader" role="tab" aria-selected="false" aria-controls="panel-reader">
+        <svg viewBox="0 0 16 16" fill="none"><path d="M2 3h12M2 6h8M2 9h10M2 12h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Reader
+      </button>
+      <button class="nav-btn" data-tab="timer" role="tab" aria-selected="false" aria-controls="panel-timer">
+        <svg viewBox="0 0 16 16" fill="none"><circle cx="8" cy="9" r="5.5" stroke="currentColor" stroke-width="1.5"/><path d="M8 6v3l2 1.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M6 1h4M8 1v2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Timer
+      </button>
+    </nav>
+  </header>
+
+  <!-- ══════════════════════════════════════
+       PANEL 1 — TAB MANAGER
+  ══════════════════════════════════════ -->
+  <section id="panel-tabs" class="panel active" role="tabpanel">
+
+    <!-- Stats bar: total open + window count -->
+    <div class="stats-bar">
+      <div class="stat-chip">
+        <span class="stat-val" id="total-tab-count">—</span>
+        <span class="stat-lbl">tabs open</span>
+      </div>
+      <div class="stat-chip">
+        <span class="stat-val" id="window-count">—</span>
+        <span class="stat-lbl">windows</span>
+      </div>
+      <!-- "Close Duplicates" as a compact icon-button in the stats bar -->
+      <button id="close-duplicates-btn" class="icon-action-btn" title="Close duplicate tabs">
+        <svg viewBox="0 0 16 16" fill="none"><path d="M4 4h8v8H4zM2 2h8v8" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 5l2 2-2 2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Close Dupes
+      </button>
+    </div>
+
+    <!-- Search box -->
+    <div class="search-wrap">
+      <svg class="search-icon" viewBox="0 0 16 16" fill="none">
+        <circle cx="6.5" cy="6.5" r="4" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M10 10l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <input
+        type="text"
+        id="tab-search"
+        class="search-input"
+        placeholder="Search tabs…"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <!-- Clear button, shown only when there's text -->
+      <button class="search-clear" id="search-clear" title="Clear" style="display:none">✕</button>
+    </div>
+
+    <!-- Scrollable tab list — populated by popup.js -->
+    <ul id="tab-list" class="tab-list" role="list">
+      <!-- Loading skeleton shown before tabs are fetched -->
+      <li class="tab-skeleton"></li>
+      <li class="tab-skeleton" style="width:75%"></li>
+      <li class="tab-skeleton" style="width:85%"></li>
+    </ul>
+
+    <!-- Empty-state shown when search has no results -->
+    <div class="empty-state" id="empty-state" hidden>
+      <svg viewBox="0 0 48 48" fill="none"><circle cx="21" cy="21" r="13" stroke="currentColor" stroke-width="2" opacity=".3"/><path d="M30 30l10 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".3"/></svg>
+      <p>No tabs match "<span id="empty-query"></span>"</p>
+    </div>
+
+  </section>
+
+  <!-- ══════════════════════════════════════
+       PANEL 2 — READING MODE
+  ══════════════════════════════════════ -->
+  <section id="panel-reader" class="panel" role="tabpanel">
+
+    <!-- Current page info card -->
+    <div class="page-info-card" id="page-info-card">
+      <div class="page-favicon-wrap">
+        <img id="reader-favicon" src="" alt="" class="page-favicon" />
+      </div>
+      <div class="page-meta">
+        <p class="page-title" id="reader-page-title">Loading…</p>
+        <p class="page-url" id="reader-page-url"></p>
+      </div>
+      <!-- Live reading-mode status dot -->
+      <span class="status-dot" id="reader-status-dot" title="Reading mode off"></span>
+    </div>
+
+    <!-- Main reader card -->
+    <div class="reader-card">
+      <div class="reader-header">
+        <h2 class="section-title">Reading Mode</h2>
+        <span class="badge" id="reader-badge">OFF</span>
+      </div>
+      <p class="section-desc">
+        Strip ads, sidebars, and navigation from the current page — reveal only the article text in a clean, readable layout.
+      </p>
+
+      <!-- Toggle button -->
+      <button id="toggle-reader-btn" class="toggle-btn" aria-pressed="false">
+        <span class="toggle-track">
+          <span class="toggle-thumb"></span>
+        </span>
+        <span class="toggle-label" id="toggle-label">Enable Reading Mode</span>
+      </button>
+
+      <!-- Font controls — always visible but only affect active reading view -->
+      <div class="font-control-group">
+        <div class="font-control-row">
+          <span class="font-ctrl-label">Font size</span>
+          <span class="font-size-pill" id="font-size-display">18px</span>
+        </div>
+        <input type="range" id="font-slider" class="font-slider" min="12" max="28" value="18" step="1" aria-label="Font size" />
+        <div class="slider-ticks">
+          <span>12</span><span>16</span><span>20</span><span>24</span><span>28</span>
+        </div>
+      </div>
+
+      <!-- Line spacing control -->
+      <div class="font-control-group">
+        <div class="font-control-row">
+          <span class="font-ctrl-label">Line spacing</span>
+          <span class="font-size-pill" id="line-height-display">1.7</span>
+        </div>
+        <input type="range" id="line-height-slider" class="font-slider" min="1.2" max="2.2" value="1.7" step="0.1" aria-label="Line spacing" />
+      </div>
+
+    </div>
+
+  </section>
+
+  <!-- ══════════════════════════════════════
+       PANEL 3 — POMODORO FOCUS TIMER
+  ══════════════════════════════════════ -->
+  <section id="panel-timer" class="panel" role="tabpanel">
+
+    <!-- Mode selector -->
+    <div class="timer-modes" role="group" aria-label="Timer mode">
+      <button type="button" class="mode-btn active" data-mode="focus" data-duration="1500">
+        Focus
+        <span class="mode-duration">25m</span>
+      </button>
+      <button type="button" class="mode-btn" data-mode="short" data-duration="300">
+        Short Break
+        <span class="mode-duration">5m</span>
+      </button>
+      <button type="button" class="mode-btn" data-mode="long" data-duration="900">
+        Long Break
+        <span class="mode-duration">15m</span>
+      </button>
+    </div>
+
+    <!-- Circular progress ring + time display -->
+    <div class="timer-ring-wrap">
+      <svg class="timer-ring" viewBox="0 0 180 180" aria-hidden="true">
+        <!-- Background track -->
+        <circle class="ring-track" cx="90" cy="90" r="78"/>
+        <!-- Animated progress arc -->
+        <circle class="ring-progress" id="ring-progress" cx="90" cy="90" r="78"/>
+      </svg>
+      <!-- Time label inside the ring -->
+      <div class="timer-inner">
+        <span id="timer-time" class="timer-digits">25:00</span>
+        <span id="timer-mode-label" class="timer-mode-label">Focus Session</span>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="timer-controls">
+      <button id="start-btn"  class="ctrl-btn primary" title="Start">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M6 4l12 6-12 6V4z"/></svg>
+        Start
+      </button>
+      <button id="pause-btn"  class="ctrl-btn secondary" disabled title="Pause">
+        <svg viewBox="0 0 20 20" fill="currentColor"><path d="M6 4h3v12H6zm5 0h3v12h-3z"/></svg>
+        Pause
+      </button>
+      <button id="reset-btn"  class="ctrl-btn ghost" title="Reset">
+        <svg viewBox="0 0 20 20" fill="none"><path d="M4 10a6 6 0 1 0 1.2-3.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M4 4.5V8h3.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Reset
+      </button>
+    </div>
+
+    <!-- Session history + streak dots -->
+    <div class="session-tracker">
+      <div class="session-info">
+        <span class="session-label">Today's sessions</span>
+        <span id="session-count" class="session-count">0</span>
+      </div>
+      <!-- Up to 8 tomato dots rendered by JS -->
+      <div id="session-dots" class="session-dots" aria-label="Completed sessions"></div>
+    </div>
+
+  </section>
+
+  <script src="popup.js"></script>
+</body>
+</html>
